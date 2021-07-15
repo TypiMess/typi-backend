@@ -1,5 +1,4 @@
 import client from './DatabaseHandler'
-import { GenerateRandomString } from "../utilities"
 import Session from '../models/Session';
 import CallbackResult from '../models/CallbackResult';
 import User from '../models/User';
@@ -131,6 +130,23 @@ export async function KeepAlive(sessionID: string): Promise<CallbackResult> {
         else {
             statusCode = 404;
         }
+    }
+    catch (e) {
+        console.error(e);
+    }
+
+    return { status: statusCode };
+}
+
+export async function RemoveSession(sessionID: string): Promise<CallbackResult> {
+    let statusCode = 500;
+
+    try {
+        await client.connect();
+        const db = client.db();
+
+        let result = await db.collection("Sessions").deleteOne({ _id: new ObjectId(sessionID) });
+        statusCode = result.deletedCount > 0 ? 200 : 404;
     }
     catch (e) {
         console.error(e);

@@ -1,101 +1,63 @@
 import express from 'express'
 import * as SessionsHandler from '../handlers/SessionsHandler'
+import * as CredsHandler from '../handlers/CredsHandler'
 import config from '../config'
+import { CR_SUCCESS } from '../models/CallbackResult';
 
 const router = express.Router();
 
-router.post("/register", function (req, res)
-{
-    
-    {
-        SessionsHandler.CreateSession(req.body.username, (sessionID) =>
-        {
-            if (sessionID)
-            {
-                res.cookie(COOKIE_SESSION_ID, sessionID, {secure: true, domain: req.body.sender, httpOnly: true})
-                .status(201)
-                .send({ status: true, msg: "Successfully registered user " + req.body.username + "!" });
-                
-                console.log("User " + req.body.username + " created.");
-            }
-            else
-            {
-                res.status(500).send();
-            }
-        });
-    }
-});
+router.post("/register", function (req, res) {
+    CredsHandler.CreateUser(req.body.Username, req.body.Password).then(data => {
+        if (CR_SUCCESS(data.status)) {
+            SessionsHandler.CreateSession(req.body.username).then(session_result => {
+                if (CR_SUCCESS(session_result.status)) {
+                    res.cookie(config.COOKIE_SESSION_ID, session_result.sessionID, { secure: true, domain: req.body.sender, httpOnly: true })
+                        .status(201)
+                        .send();
 
-router.post("/login", function (req, res)
-{
-    if (CheckCredsValid(req.body.username, req.body.password))
-    {
-        let sql = "SELECT Password, PasswordSalt FROM Users WHERE Username = ?";
-        MySQL.query(sql, [req.body.username], function (err, result)
-        {
-            if (err)
-            {
-                console.error(err);
-                res.status(500).send();
-            }
-            else
-            {
-                if (result.length > 0 )
-                {
-                    let encPassword = crypto.scryptSync(req.body.password, result[0].PasswordSalt, passwordKeyLength, {N: passwordCPUCost}).toString(passwordOutputEncoding);
-                    
-                    if (crypto.timingSafeEqual(Buffer.from(encPassword), Buffer.from(result[0].Password)))
-                    {
-                        SessionsHandler.CreateSession(req.body.username, (sessionID) =>
-                        {
-                            if (sessionID)
-                            {
-                                res.cookie(COOKIE_SESSION_ID, sessionID, {secure: true, domain: req.body.sender, httpOnly: true })
-                                .status(200)
-                                .send({ status: true, msg: "Logged in successfully!" });
-                            }
-                            else
-                            {
-                                res.status(500).send();
-                            }
-                        });
-                    }
-                    else
-                    {
-                        res.status(404).send();
-                    }
+                    console.info(`[CREDS] User ${req.body.username} created.`);
                 }
-                else
-                {
-                    res.status(404).send();
+                else {
+                    // for some reason SessionsHandler cannot find user just created, it returns 404.
+                    // We return 500 instead to indicate server error
+                    res.status(500).send();
                 }
-            }
-        });
-    }
-    else
-    {
-        res.status(404).send();
-    }
-});
-
-router.delete("/logout", function (req, res)
-{
-    MySQL.query("DELETE FROM `Sessions` WHERE SessionID = ?", [req.cookies[config.COOKIE_SESSION_ID]], (err) =>
-    {
-        if (err)
-        {
-            console.error(err);
-            res.status(500).send();
+            });
         }
-        else
-        {
-            res.status(200).send();
+        else {
+            res.status(data.status).send();
+        }
+    });
+});
+
+router.post("/login", function (req, res) {
+    CredsHandler.CheckCredential(req.body.Username, req.body.Password).then(creds_result => {
+        if (CR_SUCCESS(creds_result.status)) {
+            SessionsHandler.CreateSession(req.body.Username).then(session_result => {
+                if (CR_SUCCESS(session_result.status)) {
+                    res.cookie(config.COOKIE_SESSION_ID, session_result.sessionID, { secure: true, domain: req.body.sender, httpOnly: true })
+                        .status(200)
+                        .send();
+                }
+                else {
+                    res.status(session_result.status).send();
+                }
+            });
+        }
+        else {
+            res.status(creds_result.status).send();
         }
     })
 });
 
+router.delete("/logout", function (req, res) {
+    SessionsHandler.RemoveSession(req.cookies[config.COOKIE_SESSION_ID]).then(session_result => {
+        res.status(session_result.status).send();
+    })
+});
+
 router.get("/getPublicKeys", (req, res) => {
-    
+
 });
 
 export default router;
