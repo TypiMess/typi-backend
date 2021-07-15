@@ -40,19 +40,14 @@ router.post("/login", function (req, res) {
                         .send();
                 }
                 else {
-                    res.status(session_result.status).send();
+                    // For some reason cannot find user after checking. Returning 500 to indicate server error
+                    res.status(500).send();
                 }
             });
         }
         else {
             res.status(creds_result.status).send();
         }
-    })
-});
-
-router.delete("/logout", function (req, res) {
-    SessionsHandler.RemoveSession(req.cookies[config.COOKIE_SESSION_ID]).then(session_result => {
-        res.status(session_result.status).send();
     })
 });
 

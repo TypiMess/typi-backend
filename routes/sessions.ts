@@ -19,4 +19,10 @@ router.put("/keepAlive", function (req, res)
     });
 });
 
+router.delete("/logout", function (req, res) {
+    SessionsHandler.RemoveSession(req.cookies[config.COOKIE_SESSION_ID]).then(session_result => {
+        res.status(session_result.status).send();
+    })
+});
+
 export default router;

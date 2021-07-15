@@ -1,6 +1,6 @@
 import client from './DatabaseHandler'
 import Session from '../models/Session';
-import CallbackResult from '../models/CallbackResult';
+import CallbackResult, { CR_SUCCESS } from '../models/CallbackResult';
 import User from '../models/User';
 import { ObjectId } from 'mongodb';
 import config from '../config';
@@ -21,7 +21,7 @@ export async function CreateSession(username: string): Promise<CallbackResult & 
         let userExists = await db.collection("Users").findOne({ Username: username });
 
         if (userExists) {
-            let expireTime = Math.floor(Date.now() / 1000) + config.SESSION_EXPIRE_TIME;
+            let expireTime = Math.floor(Date.now() / 1000) + config.SESSION_EXPIRE_TIME_SEC;
             let session: Session = {
                 UserID: userExists._id,
                 ExpireTime: expireTime
@@ -62,7 +62,7 @@ export async function GetSession(sessionID: string): Promise<CallbackResult & { 
             };
         }
         else {
-            statusCode = 404;
+            statusCode = 401;
         }
     }
     catch (e) {
@@ -82,20 +82,22 @@ export async function GetUserFromSession(sessionID: string): Promise<CallbackRes
     let user: User | undefined;
 
     let session_result = await GetSession(sessionID);
-    if (session_result === 200) {
+    if (CR_SUCCESS(session_result.status)) {
         try {
             await client.connect();
             const db = client.db();
-
-            let user_result = await db.collection("User").findOne({ _id: session_result.Session?.UserID });
+            
+            let user_result = await db.collection("Users").findOne({ _id: session_result.Session!.UserID });
             if (user_result) {
                 statusCode = 200;
                 user = {
-                    Username: user_result.Username
+                    Username: user_result.Username,
+                    DateRegistered: user_result.DateRegistered
                 };
             }
             else {
-                statusCode = 404;
+                statusCode = 401;
+                console.error("[SESSIONS] Cannot find user with a given session ID. Session exists without user?");
             }
         }
         catch (e) {
@@ -121,10 +123,10 @@ export async function KeepAlive(sessionID: string): Promise<CallbackResult> {
         await client.connect();
         const db = client.db();
 
-        let expireTime = Math.floor(Date.now() / 1000) + config.SESSION_EXPIRE_TIME;
+        let expireTime = Math.floor(Date.now() / 1000) + config.SESSION_EXPIRE_TIME_SEC;
 
-        let result = await db.collection("Sessions").findOneAndUpdate({ _id: new ObjectId(sessionID) }, { ExpireTime: expireTime });
-        if (result) {
+        let result = await db.collection("Sessions").updateOne({ _id: new ObjectId(sessionID) }, {$set: { ExpireTime: expireTime }});
+        if (result.modifiedCount > 0) {
             statusCode = 200;
         }
         else {

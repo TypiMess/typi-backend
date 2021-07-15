@@ -33,7 +33,8 @@ export async function CreateUser(username: string, password: string): Promise<Ca
             const user: User = {
                 Username: username,
                 Password: encPassword,
-                PasswordSalt: passSalt
+                PasswordSalt: passSalt,
+                DateRegistered: Math.floor(Date.now() / 1000)
             }
 
             let result = await db.collection("Users").insertOne(user);

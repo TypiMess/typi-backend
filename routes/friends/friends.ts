@@ -1,68 +1,72 @@
 import express from 'express'
 import * as SessionsHandler from '../../handlers/SessionsHandler'
-import * as UsersHandler from "../../handlers/UsersHandler"
+import * as RelationshipsHandler from "../../handlers/RelationshipsHandler"
 import config from '../../config'
+import { CR_SUCCESS } from '../../models/CallbackResult';
 
 const router = express.Router();
 
 router.get("/", function (req, res)
 {
-    SessionsHandler.GetSession(req.cookies[config.COOKIE_SESSION_ID], data =>
+    SessionsHandler.GetSession(req.cookies[config.COOKIE_SESSION_ID]).then(session_result =>
     {
-        if (data.status)
+        if (CR_SUCCESS(session_result.status))
         {
-            UsersHandler.GetFriends(data.user.UserID, data2 =>
-            {
-                if (data2.status)
+            RelationshipsHandler.GetAcceptedFriends(session_result.Session!.UserID).then(friends_result => {
+                if (CR_SUCCESS(friends_result.status))
                 {
-                    res.send({ status: true, friends: data2.friends });
+                    res.status(friends_result.status).send(friends_result.Friends);
                 }
                 else
                 {
-                    res.send({ status: false });
+                    res.status(friends_result.status).send();
                 }
             });
         }
         else
         {
-            res.send({ status: false });
+            res.status(401).send();
         }
     });
 });
 
-router.post("/add", function (req, res)
+router.get("/requests", function (req, res)
 {
-    SessionsHandler.GetSession(req.cookies[config.COOKIE_SESSION_ID], data =>
+    SessionsHandler.GetSession(req.cookies[config.COOKIE_SESSION_ID]).then(session_result =>
     {
-        if (data.status)
+        if (CR_SUCCESS(session_result.status))
         {
-            UsersHandler.AddFriend(data.user.UserID, req.body.targetUsername, data2 =>
-            {
-                res.send({ status: data2.status, msg: data2.msg });
+            RelationshipsHandler.GetFriendRequests(session_result.Session!.UserID).then(friends_result => {
+                if (CR_SUCCESS(friends_result.status))
+                {
+                    res.status(friends_result.status).send(friends_result.Friends);
+                }
+                else
+                {
+                    res.status(friends_result.status).send();
+                }
             });
         }
         else
         {
-            res.send({ status: false, msg: "Unable to verify your session." });
+            res.status(401).send();
         }
+    });
+});
+
+router.post("/add/{TargetUsername}", function (req, res)
+{
+    SessionsHandler.GetSession(req.cookies[config.COOKIE_SESSION_ID]).then(session_result =>
+    {
+        
     });
 });
 
 router.put("/updateRelationship", function (req, res)
 {
-    SessionsHandler.GetSession(req.cookies[config.COOKIE_SESSION_ID], data =>
+    SessionsHandler.GetSession(req.cookies[config.COOKIE_SESSION_ID]).then(session_result =>
     {
-        if (data.status)
-        {
-            UsersHandler.UpdateRelationship(data.user.UserID, req.body.targetUserID, req.body.relationship, data2 =>
-            {
-                res.send({ status: data2.status });
-            });
-        }
-        else
-        {
-            res.send({ status: false });
-        }
+        
     })
 });
 
