@@ -16,8 +16,12 @@ export async function GetAcceptedFriends(userID: ObjectId): Promise<CallbackResu
         let user_result = await db.collection("Users").findOne({ _id: userID });
         if (user_result)
         {
-            let friends = await db.collection("Users").find({ _id: { $in: user_result.Friends }, Friends: userID }, { projection: { _id: 0, Username: 1 } });
-            listFriends = (await friends.toArray()).map(f => { return { Username: f.Username }});
+            if (user_result.Friends)
+            {
+                let friends = await db.collection("Users").find({ _id: { $in: user_result.Friends }, Friends: userID }, { projection: { _id: 0, Username: 1 } });
+                listFriends = (await friends.toArray()).map(f => { return { Username: f.Username }});
+            }
+            
             statusCode = 200;
         }
         else
@@ -53,8 +57,12 @@ export async function GetFriendRequests(userID: ObjectId): Promise<CallbackResul
         let user_result = await db.collection("Users").findOne({ _id: userID });
         if (user_result)
         {
-            let friends = await db.collection("Users").find({ _id: { $nin: user_result.Friends }, Friends: userID }, { projection: { _id: 0, Username: 1 } });
-            listFriends = (await friends.toArray()).map(f => { return { Username: f.Username }});
+            if (user_result.Friends)
+            {
+                let friends = await db.collection("Users").find({ _id: { $nin: user_result.Friends }, Friends: userID }, { projection: { _id: 0, Username: 1 } });
+                listFriends = (await friends.toArray()).map(f => { return { Username: f.Username }});
+            }
+            
             statusCode = 200;
         }
         else

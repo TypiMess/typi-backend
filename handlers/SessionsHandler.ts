@@ -174,7 +174,4 @@ export async function ClearOldSessions() {
     catch (e) {
         console.error(e);
     }
-    finally {
-        await client.close();
-    }
 }

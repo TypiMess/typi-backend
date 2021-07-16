@@ -85,6 +85,9 @@ export async function CheckCredential(username: string, password: string): Promi
                     statusCode = 404;
                 }
             }
+            else {
+                statusCode = 404;
+            }
         }
         catch (e) {
             console.error(e);

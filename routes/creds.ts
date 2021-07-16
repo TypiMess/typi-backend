@@ -7,15 +7,15 @@ import { CR_SUCCESS } from '../models/CallbackResult';
 const router = express.Router();
 
 router.post("/register", function (req, res) {
-    CredsHandler.CreateUser(req.body.Username, req.body.Password).then(data => {
-        if (CR_SUCCESS(data.status)) {
-            SessionsHandler.CreateSession(req.body.username).then(session_result => {
+    CredsHandler.CreateUser(req.body.Username, req.body.Password).then(creds_result => {
+        if (CR_SUCCESS(creds_result.status)) {
+            SessionsHandler.CreateSession(req.body.Username).then(session_result => {
                 if (CR_SUCCESS(session_result.status)) {
-                    res.cookie(config.COOKIE_SESSION_ID, session_result.sessionID, { secure: true, domain: req.body.sender, httpOnly: true })
+                    res.cookie(config.COOKIE_SESSION_ID, session_result.sessionID, { secure: true, httpOnly: true })
                         .status(201)
                         .send();
 
-                    console.info(`[CREDS] User ${req.body.username} created.`);
+                    console.info(`[CREDS] User ${req.body.Username} created.`);
                 }
                 else {
                     // for some reason SessionsHandler cannot find user just created, it returns 404.
@@ -25,7 +25,7 @@ router.post("/register", function (req, res) {
             });
         }
         else {
-            res.status(data.status).send();
+            res.status(creds_result.status).send();
         }
     });
 });
@@ -35,7 +35,7 @@ router.post("/login", function (req, res) {
         if (CR_SUCCESS(creds_result.status)) {
             SessionsHandler.CreateSession(req.body.Username).then(session_result => {
                 if (CR_SUCCESS(session_result.status)) {
-                    res.cookie(config.COOKIE_SESSION_ID, session_result.sessionID, { secure: true, domain: req.body.sender, httpOnly: true })
+                    res.cookie(config.COOKIE_SESSION_ID, session_result.sessionID, { secure: true, httpOnly: true })
                         .status(200)
                         .send();
                 }
