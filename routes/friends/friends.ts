@@ -54,11 +54,20 @@ router.get("/requests", function (req, res)
     });
 });
 
-router.post("/add/{TargetUsername}", function (req, res)
+router.post("/add/:TargetUsername", function (req, res)
 {
     SessionsHandler.GetSession(req.cookies[config.COOKIE_SESSION_ID]).then(session_result =>
     {
-        
+        if (CR_SUCCESS(session_result.status))
+        {
+            RelationshipsHandler.AddFriend(session_result.Session!.UserID, req.params.TargetUsername).then(relationship_result => {
+                res.status(relationship_result.status).send();
+            });
+        }
+        else
+        {
+            res.send(session_result.status).send();
+        }
     });
 });
 
@@ -67,7 +76,7 @@ router.put("/updateRelationship", function (req, res)
     SessionsHandler.GetSession(req.cookies[config.COOKIE_SESSION_ID]).then(session_result =>
     {
         
-    })
+    });
 });
 
 export default router;

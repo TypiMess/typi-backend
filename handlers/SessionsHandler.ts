@@ -4,11 +4,14 @@ import CallbackResult, { CR_SUCCESS } from '../models/CallbackResult';
 import User from '../models/User';
 import { ObjectId } from 'mongodb';
 import config from '../config';
+import { GetUserFromUsername } from './UsersHandler';
 
 /**
  * Create a new session in database
  * @param username username to create new session
- * @return a status code will be returned
+ * @return a status code will be returned:
+ * 201: Created
+ * 404: User with username not found
  */
 export async function CreateSession(username: string): Promise<CallbackResult & { sessionID?: string }> {
     let statusCode = 500;
@@ -18,12 +21,12 @@ export async function CreateSession(username: string): Promise<CallbackResult & 
         await client.connect();
         const db = client.db();
 
-        let userExists = await db.collection("Users").findOne({ Username: username });
+        let user_result = await GetUserFromUsername(username);
 
-        if (userExists) {
+        if (CR_SUCCESS(user_result.status)) {
             let expireTime = Math.floor(Date.now() / 1000) + config.SESSION_EXPIRE_TIME_SEC;
             let session: Session = {
-                UserID: userExists._id,
+                UserID: user_result.User!.UserID!,
                 ExpireTime: expireTime
             }
 
@@ -45,6 +48,14 @@ export async function CreateSession(username: string): Promise<CallbackResult & 
     return { status: statusCode, sessionID: sessionID?.toHexString() }
 }
 
+/**
+ * Get session's info from ID
+ * @param sessionID 
+ * @returns session's info in {@link Session} object
+ * @returns a status code
+ * 200: OK
+ * 401: Session ID not found
+ */
 export async function GetSession(sessionID: string): Promise<CallbackResult & { Session?: Session }> {
     let statusCode = 500;
     let session: Session | undefined;

@@ -2,8 +2,9 @@ import crypto from "crypto"
 import client from './DatabaseHandler'
 import { CheckCredsValid, GenerateRandomString } from "../utilities"
 import User from "../models/User";
-import CallbackResult from "../models/CallbackResult";
+import CallbackResult, { CR_SUCCESS } from "../models/CallbackResult";
 import { MongoServerError } from "mongodb";
+import { GetUserFromUsername } from "./UsersHandler";
 
 const passwordSaltLength = 32;
 const passwordKeyLength = 64;
@@ -43,7 +44,7 @@ export async function CreateUser(username: string, password: string): Promise<Ca
             }
         }
         catch (e) {
-            let error = <MongoServerError>e;
+            let error = e as MongoServerError;
 
             switch (error.code) {
                 // E11000 - Duplicate entry
@@ -55,6 +56,7 @@ export async function CreateUser(username: string, password: string): Promise<Ca
                     statusCode = 406;
                     break;
                 default:
+                    console.error(e);
                     break;
             }
         }
@@ -70,27 +72,19 @@ export async function CheckCredential(username: string, password: string): Promi
     let statusCode = 500;
 
     if (CheckCredsValid(username, password)) {
-        try {
-            await client.connect();
-            const db = client.db();
+        let result = await GetUserFromUsername(username);
+        if (CR_SUCCESS(result.status)) {
+            let encPassword = crypto.scryptSync(password, result.User!.PasswordSalt!, passwordKeyLength, { N: passwordCPUCost }).toString(passwordOutputEncoding);
 
-            let result = await db.collection("Users").findOne({ Username: username });
-            if (result) {
-                let encPassword = crypto.scryptSync(password, result.PasswordSalt, passwordKeyLength, { N: passwordCPUCost }).toString(passwordOutputEncoding);
-
-                if (crypto.timingSafeEqual(Buffer.from(encPassword), Buffer.from(result.Password))) {
-                    statusCode = 200;
-                }
-                else {
-                    statusCode = 404;
-                }
+            if (crypto.timingSafeEqual(Buffer.from(encPassword), Buffer.from(result.User!.Password!))) {
+                statusCode = 200;
             }
             else {
                 statusCode = 404;
             }
         }
-        catch (e) {
-            console.error(e);
+        else {
+            statusCode = 404;
         }
     }
     else {
