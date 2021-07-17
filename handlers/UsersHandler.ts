@@ -24,7 +24,13 @@ export async function GetUserFromUsername(username: string): Promise<CallbackRes
             let result = await db.collection("Users").findOne({ Username: new RegExp(`^${username}$`, 'i') });
             if (result) {
                 statusCode = 200;
-                Object.assign(user, result);
+                user = {
+                    UserID: result._id,
+                    Username: result.Username,
+                    Password: result.Password,
+                    PasswordSalt: result.PasswordSalt,
+                    DateRegistered: result.DateRegistered
+                }
             }
             else {
                 statusCode = 404;

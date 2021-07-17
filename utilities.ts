@@ -30,7 +30,7 @@ export function CheckCredsValid(username: string, password: string)
 
 export function CheckUsernameValid(username: string)
 {
-    return username && /^(\\w|\\d){3,32}$/.test(username);
+    return username && /^(\w|\d){3,32}$/.test(username);
 }
 
 export function CheckPasswordValid(password: string)
