@@ -5,37 +5,53 @@ import { CheckUsernameValid } from '../utilities';
 import client from './DatabaseHandler'
 import { GetUserFromUsername } from './UsersHandler';
 
-export async function GetAcceptedFriends(userID: ObjectId): Promise<CallbackResult & { Friends: User[] }>
-{
+const RelationshipStatus = {
+    Friends: 'Friends',
+    Pending: 'Pending',
+    Blocked: 'Blocked'
+}
+
+/**
+ * Get a list of accepted friends
+ * @param userID current user's ID object
+ * @returns an array of users who are friends, can be an empty array
+ * @returns a status code
+ * 200: Success
+ */
+export async function GetAcceptedFriends(userID: ObjectId): Promise<CallbackResult & { Friends: User[] }> {
     let statusCode = 500;
     let listFriends: User[] = [];
-    
-    try
-    {
+
+    try {
         await client.connect();
         const db = client.db();
+
+        let relationship_results = db.collection("Relationships").find({
+            $or: [
+                { User1: userID },
+                { User2: userID }
+            ],
+            Status: RelationshipStatus.Friends
+        });
         
-        let user_result = await db.collection("Users").findOne({ _id: userID });
-        if (user_result)
-        {
-            if (user_result.Friends)
-            {
-                let friends = await db.collection("Users").find({ _id: { $in: user_result.Friends }, Friends: userID }, { projection: { _id: 0, Username: 1 } });
-                listFriends = (await friends.toArray()).map(f => { return { Username: f.Username }});
-            }
-            
-            statusCode = 200;
+        if ((await relationship_results.count()) > 0) {
+            let friendsIds: ObjectId[] = [];
+
+            await relationship_results.forEach(result => {
+                const friendId = userID.equals(result.User1) ? result.User2 : result.User1;
+                friendsIds.push(friendId);
+            });
+
+            let friends = await db.collection("Users").find({ _id: { $in: friendsIds } }, { projection: { _id: 0, Username: 1 } });
+            listFriends = (await friends.toArray()).map(f => { return { Username: f.Username } });
         }
-        else
-        {
-            statusCode = 401;
-        }
+
+        statusCode = 200;
     }
-    catch (e)
-    {
+    catch (e) {
         console.error(e);
     }
-    
+
     return { status: statusCode, Friends: listFriends }
 }
 
@@ -44,89 +60,101 @@ export async function GetAcceptedFriends(userID: ObjectId): Promise<CallbackResu
  * @param userID Current user ID object
  * @returns a status code and an array of {@link User}s.
  * 200: Success
- * 401: Cannot get current user.
  */
-export async function GetFriendRequests(userID: ObjectId): Promise<CallbackResult & { Friends: User[] }>
-{
+export async function GetFriendRequests(userID: ObjectId): Promise<CallbackResult & { Friends: User[] }> {
     let statusCode = 500;
-    let listFriends: User[] = [];
-    
-    try
-    {
+    let listFriendRequests: User[] = [];
+
+    try {
         await client.connect();
         const db = client.db();
-        
-        let user_result = await db.collection("Users").findOne({ _id: userID });
-        if (user_result)
-        {
-            let friends = await db.collection("Users").find({ _id: { $nin: user_result.Friends ?? [] }, Friends: userID }, { projection: { _id: 0, Username: 1 } });
-            listFriends = (await friends.toArray()).map(f => { return { Username: f.Username }});
-            
-            statusCode = 200;
+
+        let relationship_results = db.collection("Relationships").find({
+            $or: [
+                { User1: userID },
+                { User2: userID }
+            ],
+            TargetUser: userID,
+            Status: RelationshipStatus.Pending
+        });
+
+        if ((await relationship_results.count()) > 0) {
+            let friendsIds: ObjectId[] = [];
+
+            await relationship_results.forEach(result => {
+                const friendId = userID.equals(result.User1) ? result.User2 : result.User1;
+                friendsIds.push(friendId);
+            });
+
+            let friendRequests = await db.collection("Users").find({ _id: { $in: friendsIds } }, { projection: { _id: 0, Username: 1 } });
+            listFriendRequests = (await friendRequests.toArray()).map(f => { return { Username: f.Username } });
         }
-        else
-        {
-            statusCode = 401;
-        }
+
+        statusCode = 200;
     }
-    catch (e)
-    {
+    catch (e) {
         console.error(e);
     }
-    
-    return { status: statusCode, Friends: listFriends }
+
+    return { status: statusCode, Friends: listFriendRequests }
 }
 
 /**
- * 
+ * Send a friend request to a target user using their username
  * @param userID 
  * @param targetUsername 
  * @returns a status code
  * 201: Sent a friend request
  * 403: No permission to add as friend
  * 404: User with username not found
- * 406: Username is invalid
+ * 406: Input to database failed validation
+ * 409: The target user is already a friend/sent a request
  */
-export async function AddFriend(userID: ObjectId, targetUsername: string): Promise<CallbackResult>
-{
+export async function AddFriend(userID: ObjectId, targetUsername: string): Promise<CallbackResult> {
     let statusCode = 500;
-    
-    try
-    {
+
+    try {
         await client.connect();
         const db = client.db();
-        
+
         let users_result = await GetUserFromUsername(targetUsername);
-        if (CR_SUCCESS(users_result.status))
-        {
-            const sortedUserIDs = [ userID, users_result.User!.UserID! ].sort((a, b) => a.toHexString() > b.toHexString() ? 1 : -1);
-            
-            let result = await db.collection("Relationships").insertOne({
+        if (CR_SUCCESS(users_result.status)) {
+            const sortedUserIDs = [userID, users_result.User!.UserID!].sort((a, b) => a.toHexString() > b.toHexString() ? 1 : -1);
+
+            let currentRelationship_result = await db.collection("Relationships").findOne({
                 User1: sortedUserIDs[0],
                 User2: sortedUserIDs[1],
-                TargetUser: users_result.User!.UserID!,
-                Status: 'Pending'
             });
-            
-            if (result.acknowledged)
-            {
-                statusCode = 201;
+
+            if (!currentRelationship_result) {
+                let result = await db.collection("Relationships").insertOne({
+                    User1: sortedUserIDs[0],
+                    User2: sortedUserIDs[1],
+                    TargetUser: users_result.User!.UserID!,
+                    Status: RelationshipStatus.Pending
+                });
+
+                if (result.acknowledged) {
+                    statusCode = 201;
+                }
+            }
+            else {
+                if (userID.equals(currentRelationship_result.TargetUser) && currentRelationship_result.Status === RelationshipStatus.Blocked) {
+                    statusCode = 403;
+                }
+                else {
+                    statusCode = 409;
+                }
             }
         }
-        else
-        {
+        else {
             statusCode = users_result.status;
         }
     }
-    catch (e)
-    {
+    catch (e) {
         let error = e as MongoServerError;
 
         switch (error.code) {
-            // E11000 - Duplicate entry
-            case 11000:
-                statusCode = 409;
-                break;
             // E121 - Validation unsatified
             case 121:
                 statusCode = 406;
@@ -136,11 +164,6 @@ export async function AddFriend(userID: ObjectId, targetUsername: string): Promi
                 break;
         }
     }
-    
-    return { status: statusCode }
-}
 
-export function UpdateRelationship(userID: ObjectId, targetUsername: string, relationship: string)
-{
-    
+    return { status: statusCode }
 }

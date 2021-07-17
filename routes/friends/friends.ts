@@ -12,14 +12,14 @@ router.get("/", function (req, res)
     {
         if (CR_SUCCESS(session_result.status))
         {
-            RelationshipsHandler.GetAcceptedFriends(session_result.Session!.UserID).then(friends_result => {
-                if (CR_SUCCESS(friends_result.status))
+            RelationshipsHandler.GetAcceptedFriends(session_result.Session!.UserID).then(relationship_result => {
+                if (CR_SUCCESS(relationship_result.status))
                 {
-                    res.status(friends_result.status).send(friends_result.Friends);
+                    res.status(relationship_result.status).send(relationship_result.Friends);
                 }
                 else
                 {
-                    res.status(friends_result.status).send();
+                    res.status(relationship_result.status).send();
                 }
             });
         }
@@ -36,14 +36,14 @@ router.get("/requests", function (req, res)
     {
         if (CR_SUCCESS(session_result.status))
         {
-            RelationshipsHandler.GetFriendRequests(session_result.Session!.UserID).then(friends_result => {
-                if (CR_SUCCESS(friends_result.status))
+            RelationshipsHandler.GetFriendRequests(session_result.Session!.UserID).then(relationship_result => {
+                if (CR_SUCCESS(relationship_result.status))
                 {
-                    res.status(friends_result.status).send(friends_result.Friends);
+                    res.status(relationship_result.status).send(relationship_result.Friends);
                 }
                 else
                 {
-                    res.status(friends_result.status).send();
+                    res.status(relationship_result.status).send();
                 }
             });
         }
@@ -71,12 +71,5 @@ router.post("/add/:TargetUsername", function (req, res)
     });
 });
 
-router.put("/updateRelationship", function (req, res)
-{
-    SessionsHandler.GetSession(req.cookies[config.COOKIE_SESSION_ID]).then(session_result =>
-    {
-        
-    });
-});
 
 export default router;

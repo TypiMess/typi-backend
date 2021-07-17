@@ -1,13 +1,17 @@
 {
   "name": "typi-backend",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "",
   "main": "index.ts",
   "scripts": {
     "start": "nodemon index.ts"
   },
-  "keywords": [],
-  "author": "ducng99",
+  "keywords": [ "api", "typi" ],
+  "author": {
+    "name": "Thomas Nguyen",
+    "url": "https://ducng.dev",
+    "email": "tom@ducng.dev"
+  },
   "license": "AGPL-3.0",
   "dependencies": {
     "cookie-parser": "^1.4.5",
