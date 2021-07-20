@@ -137,7 +137,7 @@ export async function KeepAlive(sessionID: string): Promise<CallbackResult> {
         let expireTime = Math.floor(Date.now() / 1000) + config.SESSION_EXPIRE_TIME_SEC;
 
         let result = await db.collection("Sessions").updateOne({ _id: new ObjectId(sessionID) }, {$set: { ExpireTime: expireTime }});
-        if (result.modifiedCount > 0) {
+        if (result.matchedCount > 0) {
             statusCode = 200;
         }
         else {

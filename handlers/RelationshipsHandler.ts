@@ -1,7 +1,6 @@
 import { MongoServerError, ObjectId } from 'mongodb';
 import CallbackResult, { CR_SUCCESS } from '../models/CallbackResult';
 import User from '../models/User';
-import { CheckUsernameValid } from '../utilities';
 import client from './DatabaseHandler'
 import { GetUserFromUsername } from './UsersHandler';
 
@@ -139,7 +138,7 @@ export async function AddFriend(userID: ObjectId, targetUsername: string): Promi
                 }
             }
             else {
-                if (userID.equals(currentRelationship_result.TargetUser) && currentRelationship_result.Status === RelationshipStatus.Blocked) {
+                if (currentRelationship_result.Status === RelationshipStatus.Blocked) {
                     statusCode = 403;
                 }
                 else {
